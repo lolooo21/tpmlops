@@ -21,9 +21,8 @@ JupyterProject/
 +-- models/               # Modeles entraines exportes
 +-- notebooks/            # Exploration et experimentation
 |   +-- 01_exploration.ipynb
-|   +-- 01_exploration_taxi.py
-|   +-- 02_baseline_and_time_features.py
-|   +-- 03_distance_and_map_features.py
+|   +-- 02_baseline_and_time_features.ipynb
+|   +-- 03_distance_and_map_features.ipynb
 +-- reports/
 |   +-- figures/          # Graphiques exportes
 +-- tests/
@@ -53,9 +52,9 @@ jupyter lab
 
 ## Convention conseillee pour les notebooks
 
-- `01_exploration.ipynb` ou `01_exploration_taxi.py`
-- `02_baseline_and_time_features.py`
-- `03_distance_and_map_features.py`
+- `01_exploration.ipynb`
+- `02_baseline_and_time_features.ipynb`
+- `03_distance_and_map_features.ipynb`
 
 ## Pipeline actuel
 

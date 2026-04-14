@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from pandas.tseries.holiday import USFederalHolidayCalendar
 
 
 def build_abnormal_dates(X, min_daily_trips=6300):
@@ -13,10 +14,19 @@ def build_abnormal_dates(X, min_daily_trips=6300):
 def add_time_features(X, abnormal_dates=None):
     X = X.copy()
     pickup_datetime = pd.to_datetime(X["pickup_datetime"])
+    pickup_dates = pickup_datetime.dt.normalize()
+    holiday_dates = get_us_holiday_dates(pickup_dates.min(), pickup_dates.max())
 
     X["weekday"] = pickup_datetime.dt.weekday
     X["month"] = pickup_datetime.dt.month
     X["hour"] = pickup_datetime.dt.hour
+    X["is_weekend"] = (X["weekday"] >= 5).astype(int)
+    X["time_bucket"] = pickup_datetime.dt.hour.map(get_time_bucket)
+    X["hour_sin"] = np.sin(2 * np.pi * X["hour"] / 24)
+    X["hour_cos"] = np.cos(2 * np.pi * X["hour"] / 24)
+    X["is_holiday"] = pickup_dates.isin(holiday_dates).astype(int)
+    X["is_pre_holiday"] = (pickup_dates + pd.Timedelta(days=1)).isin(holiday_dates).astype(int)
+    X["is_post_holiday"] = (pickup_dates - pd.Timedelta(days=1)).isin(holiday_dates).astype(int)
 
     if abnormal_dates is None:
         X["abnormal_period"] = 0
@@ -24,6 +34,25 @@ def add_time_features(X, abnormal_dates=None):
         X["abnormal_period"] = pickup_datetime.dt.date.isin(abnormal_dates).astype(int)
 
     return X
+
+
+def get_us_holiday_dates(start_date, end_date):
+    # Use an official US federal holiday calendar to keep the feature deterministic.
+    calendar = USFederalHolidayCalendar()
+    return calendar.holidays(start=start_date, end=end_date)
+
+
+def get_time_bucket(hour):
+    # Keep buckets coarse so the linear model can learn stable traffic regimes.
+    if 6 <= hour <= 9:
+        return "morning_peak"
+    if 10 <= hour <= 15:
+        return "midday"
+    if 16 <= hour <= 19:
+        return "evening_peak"
+    if 20 <= hour <= 23:
+        return "night"
+    return "late_night"
 
 
 def haversine_array(lat1, lng1, lat2, lng2):

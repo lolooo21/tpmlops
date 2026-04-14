@@ -8,8 +8,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-data/diabetes.db
-model-registry/
 .idea/
 build/
 develop-eggs/
@@ -80,6 +78,16 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+
+# Project data and artifacts
+data/raw/*
+data/processed/*
+models/*
+reports/figures/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!models/.gitkeep
+!reports/figures/.gitkeep
 
 # IPython
 profile_default/

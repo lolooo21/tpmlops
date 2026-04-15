@@ -202,6 +202,88 @@ Endpoints utiles:
 - `POST /predict_batch`
 - `GET /docs`
 
+## Interface Streamlit
+
+Une interface graphique Streamlit est fournie dans `ui/app.py`.
+
+Fonctionnalites:
+- choix du `pickup` et du `dropoff` par clic sur une carte
+- ou recherche d'adresses new-yorkaises avec suggestions
+- saisie de la date via `st.date_input` et de l'heure via `st.time_input`
+- saisie du nombre de passagers via `st.slider`
+- affichage du payload envoye a l'API
+- appel direct a `POST /predict`
+- affichage de la duree predite et de la version de modele utilisee
+- gestion de messages d'erreur utilisateur pour les inputs invalides et les versions de modele inconnues
+
+Fichiers lies a l'interface:
+- `ui/app.py` : application Streamlit principale
+- `streamlit_app.py` : wrapper de compatibilite qui lance `ui.app.main()`
+- `api/main.py` : endpoint HTTP `POST /predict` appele par l'UI
+- `api/schemas.py` : format exact du payload et de la reponse
+- `api/error_handlers.py` : structure des erreurs transformees ensuite en messages lisibles dans l'UI
+
+Flux des donnees dans l'interface:
+1. L'utilisateur saisit les attributs dans les widgets Streamlit:
+   `st.date_input`, `st.time_input`, `st.slider`, `st.number_input`, `st.selectbox`.
+2. Les coordonnees sont renseignees soit:
+   par clic sur la carte, stocke en `st.session_state`,
+   soit par recherche d'adresse, puis conversion de la suggestion choisie en latitude/longitude.
+3. `build_payload()` assemble toutes les valeurs UI en un dictionnaire Python conforme a `TripPredictionRequest`.
+4. `call_prediction_api()` envoie ce dictionnaire en JSON via `requests.post()` vers `POST /predict`.
+5. L'API retourne `prediction_id`, `trip_duration` et `model_version`.
+6. L'UI formate `trip_duration` en `hh:mm:ss` puis affiche le resultat.
+7. Si l'API renvoie une erreur, `extract_api_error_message()` convertit la reponse JSON en message utilisateur plus lisible.
+
+Extrait simplifie du payload envoye par l'UI:
+
+```json
+{
+  "vendor_id": 1,
+  "pickup_datetime": "2016-03-14T17:24:55",
+  "passenger_count": 1,
+  "pickup_longitude": -73.982154,
+  "pickup_latitude": 40.767937,
+  "dropoff_longitude": -73.96463,
+  "dropoff_latitude": 40.765602,
+  "store_and_fwd_flag": "N"
+}
+```
+
+Installation des dependances UI:
+
+```powershell
+.\.venv\Scripts\python.exe -m ensurepip --upgrade
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Lancement conseille dans 2 terminaux:
+
+Terminal 1, API:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn api.main:app --reload
+```
+
+Terminal 2, Streamlit:
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run .\ui\app.py
+```
+
+Si tu vois `ModuleNotFoundError: No module named 'streamlit_folium'`, cela signifie que les dependances UI ne sont pas encore installees dans le meme virtualenv que celui utilise pour lancer Streamlit.
+
+Si tu vois `No module named pip`, recrée d'abord `pip` dans le venv:
+
+```powershell
+.\.venv\Scripts\python.exe -m ensurepip --upgrade
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Remarque:
+- l'autocompletion d'adresse s'appuie sur un service de geocodage OpenStreetMap/Nominatim
+- pour un vrai autocomplete "temps reel" en production, il vaut mieux passer par Mapbox, Google Places ou Algolia Places selon les contraintes produit et quota
+
 ## Exemple de prediction
 
 Ouvrir Swagger:
@@ -352,6 +434,37 @@ Si les tables `train` ou `test` n'existent pas encore dans `data/taxi_trip_durat
 ### `favicon.ico` retourne `404`
 
 C'est normal tant qu'aucune icone n'est servie par l'application. Cela n'indique pas un probleme de fonctionnement de l'API.
+
+### `ModuleNotFoundError: No module named 'streamlit_folium'`
+
+L'application Streamlit depend de `streamlit-folium` pour gerer la carte interactive.
+
+Installe les dependances dans le venv du projet:
+
+```powershell
+.\.venv\Scripts\python.exe -m ensurepip --upgrade
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Puis relance Streamlit:
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run .\ui\app.py
+```
+
+### `No module named pip`
+
+Si cette erreur apparait dans `.venv`, cela signifie que `pip` n'est pas present dans cet environnement Python. Reinstalle-le avec:
+
+```powershell
+.\.venv\Scripts\python.exe -m ensurepip --upgrade
+```
+
+Ensuite installe ou mets a jour les dependances:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
 
 ## Convention conseillee pour les notebooks
 

@@ -4,6 +4,7 @@ from pandas.tseries.holiday import USFederalHolidayCalendar
 
 
 def build_abnormal_dates(X, min_daily_trips=6300):
+    # Low-volume days are marked separately to capture atypical traffic conditions.
     pickup_datetime = pd.to_datetime(X["pickup_datetime"])
     pickup_date = pickup_datetime.dt.date.rename("pickup_date")
     trip_count_by_date = pickup_date.groupby(pickup_date).count()
@@ -12,6 +13,7 @@ def build_abnormal_dates(X, min_daily_trips=6300):
 
 
 def add_time_features(X, abnormal_dates=None):
+    # Time features encode daily, weekly and holiday-related traffic patterns.
     X = X.copy()
     pickup_datetime = pd.to_datetime(X["pickup_datetime"])
     pickup_dates = pickup_datetime.dt.normalize()
@@ -56,6 +58,7 @@ def get_time_bucket(hour):
 
 
 def haversine_array(lat1, lng1, lat2, lng2):
+    # Great-circle distance is a strong proxy for expected trip duration.
     lat1, lng1, lat2, lng2 = map(np.radians, (lat1, lng1, lat2, lng2))
     avg_earth_radius = 6371
     lat = lat2 - lat1
@@ -80,6 +83,7 @@ def is_high_speed_trip(X):
 
 
 def is_rare_point(X, latitude_column, longitude_column, qmin_lat, qmax_lat, qmin_lon, qmax_lon):
+    # Rare pickup/dropoff zones help isolate trips with unusual routing behavior.
     lat_min = X[latitude_column].quantile(qmin_lat)
     lat_max = X[latitude_column].quantile(qmax_lat)
     lon_min = X[longitude_column].quantile(qmin_lon)
@@ -94,6 +98,7 @@ def is_rare_point(X, latitude_column, longitude_column, qmin_lat, qmax_lat, qmin
 
 
 def add_distance_features(X):
+    # Distance is stored in log space to keep the scale compatible with linear models.
     X = X.copy()
     distance_haversine = haversine_array(
         X["pickup_latitude"],
@@ -106,6 +111,7 @@ def add_distance_features(X):
 
 
 def add_trip_type_features(X):
+    # These binary indicators summarize traffic context without relying on external APIs.
     X = X.copy()
     X["is_high_traffic_trip"] = is_high_traffic_trip(X).astype(int)
     X["is_high_speed_trip"] = is_high_speed_trip(X).astype(int)

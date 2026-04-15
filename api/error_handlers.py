@@ -5,7 +5,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from api.config import SETTINGS
-from api.schemas import ValidationErrorResponse
+from api.exceptions import ModelVersionNotFoundError
+from api.schemas import ModelVersionErrorResponse, ValidationErrorResponse
 
 
 async def handle_request_validation_error(
@@ -42,3 +43,18 @@ async def handle_request_validation_error(
 def register_exception_handlers(app: FastAPI) -> None:
     # Keep exception wiring in one place to simplify api.main.
     app.add_exception_handler(RequestValidationError, handle_request_validation_error)
+    app.add_exception_handler(ModelVersionNotFoundError, handle_model_version_not_found)
+
+
+async def handle_model_version_not_found(
+    request: Request, error: ModelVersionNotFoundError
+) -> JSONResponse:
+    # Make invalid model version requests explicit for API consumers.
+    return JSONResponse(
+        status_code=404,
+        content=ModelVersionErrorResponse(
+            message="Requested model version is not available.",
+            requested_model_version=error.requested_version,
+            available_model_versions=error.available_versions,
+        ).model_dump(),
+    )

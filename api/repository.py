@@ -77,23 +77,32 @@ class PredictionRepository:
             pickup_datetime = pickup_datetime.isoformat()
 
         with sqlite3.connect(self._db_path) as connection:
-            cursor = connection.execute(
-                """
-                INSERT INTO predictions (
-                    inference_timestamp,
-                    vendor_id,
-                    pickup_datetime,
-                    passenger_count,
-                    pickup_longitude,
-                    pickup_latitude,
-                    dropoff_longitude,
-                    dropoff_latitude,
-                    store_and_fwd_flag,
-                    prediction,
-                    model_version
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
+            prediction_columns = self._get_prediction_columns(connection)
+            insert_columns = []
+            insert_values = []
+
+            if "created_at" in prediction_columns:
+                # Keep backward compatibility with legacy databases that still require created_at.
+                insert_columns.append("created_at")
+                insert_values.append(inference_timestamp)
+
+            insert_columns.extend(
+                [
+                    "inference_timestamp",
+                    "vendor_id",
+                    "pickup_datetime",
+                    "passenger_count",
+                    "pickup_longitude",
+                    "pickup_latitude",
+                    "dropoff_longitude",
+                    "dropoff_latitude",
+                    "store_and_fwd_flag",
+                    "prediction",
+                    "model_version",
+                ]
+            )
+            insert_values.extend(
+                [
                     inference_timestamp,
                     payload["vendor_id"],
                     pickup_datetime,
@@ -105,7 +114,14 @@ class PredictionRepository:
                     payload["store_and_fwd_flag"],
                     prediction,
                     model_version,
-                ),
+                ]
+            )
+
+            placeholders = ", ".join(["?"] * len(insert_columns))
+            column_list = ", ".join(insert_columns)
+            cursor = connection.execute(
+                f"INSERT INTO predictions ({column_list}) VALUES ({placeholders})",
+                tuple(insert_values),
             )
             connection.commit()
             return int(cursor.lastrowid)
@@ -125,6 +141,10 @@ class PredictionRepository:
 
         if "model_version" not in existing_columns:
             connection.execute("ALTER TABLE predictions ADD COLUMN model_version TEXT")
+
+    def _get_prediction_columns(self, connection: sqlite3.Connection) -> set[str]:
+        # Read the live schema because existing local databases may still be on the old layout.
+        return {row[1] for row in connection.execute("PRAGMA table_info(predictions)").fetchall()}
 
 
 def build_prediction_repository() -> PredictionRepository:

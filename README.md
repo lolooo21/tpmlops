@@ -11,6 +11,7 @@ JupyterProject/
 |   +-- schemas.py       # Schemas Pydantic request/response
 |   +-- validation.py    # Validation geographique des requetes
 |   +-- model_metadata.py # Metadonnees du modele charge par l'API
+|   +-- model_registry.py # Resolution et chargement des versions de modele
 |   +-- service.py       # Orchestration prediction + persistence
 |   +-- repository.py    # Acces SQLite pour les predictions
 |   +-- config.py        # Parametres de l'API
@@ -100,6 +101,8 @@ Artefacts produits:
 - `models/taxi_trip_duration_ridge.model`
 - `models/taxi_trip_duration_custom.model`
 - `models/taxi_trip_duration_custom.metadata.json`
+- `models/custom_versions/<model_version>.model`
+- `models/custom_versions/<model_version>.metadata.json`
 
 ## Test rapide du modele custom
 
@@ -111,7 +114,7 @@ Ce script recharge `models/taxi_trip_duration_custom.model` et affiche quelques 
 
 ## Fonctionnement de l'API
 
-L'API repose sur 4 couches simples:
+L'API repose sur 6 couches simples:
 
 1. `api/main.py`
    Expose les endpoints FastAPI.
@@ -119,9 +122,11 @@ L'API repose sur 4 couches simples:
    Valide les payloads d'entree et les reponses avec Pydantic.
 3. `api/validation.py`
    Regroupe les regles geographiques appliquees avant l'inference.
-4. `api/service.py`
+4. `api/model_registry.py`
+   Selectionne la version demandee et charge le bon artefact de modele.
+5. `api/service.py`
    Charge le modele, appelle la prediction et orchestre la sauvegarde.
-5. `api/repository.py`
+6. `api/repository.py`
    Cree les tables SQLite si besoin et persiste predictions + metadata du modele.
 
 Flux d'une requete `POST /predict`:
@@ -131,6 +136,21 @@ Flux d'une requete `POST /predict`:
 3. Le modele custom `TaxiTripDurationModel` applique preprocessing + prediction + postprocessing.
 4. `PredictionRepository` enregistre la prediction avec l'horodatage d'inference et la version du modele.
 5. L'API retourne `prediction_id` et `trip_duration`.
+
+## Versioning des modeles
+
+Chaque entrainement du modele custom genere:
+- une nouvelle version horodatee
+- un artefact versionne dans `models/custom_versions/`
+- une metadata JSON versionnee
+- un alias `latest` via `models/taxi_trip_duration_custom.model`
+- un alias `latest` via `models/taxi_trip_duration_custom.metadata.json`
+
+Dans l'API:
+- `model_version` est optionnel sur `/predict`
+- `model_version` est optionnel sur `/predict_batch`
+- si `model_version` est absent, l'API utilise la derniere version disponible
+- si `model_version` est fourni, l'API charge explicitement cette version
 
 ## Logging de metadonnees
 
@@ -179,6 +199,7 @@ Endpoints utiles:
 - `GET /health`
 - `GET /test/random`
 - `POST /predict`
+- `POST /predict_batch`
 - `GET /docs`
 
 ## Exemple de prediction
@@ -202,12 +223,64 @@ Exemple de body pour `POST /predict`:
 }
 ```
 
+Exemple avec version explicite:
+
+- `POST /predict?model_version=taxi_trip_duration_custom_20260415T120000Z`
+
+Exemple de body pour `POST /predict_batch`:
+
+```json
+{
+  "trips": [
+    {
+      "vendor_id": 1,
+      "pickup_datetime": "2016-03-14T17:24:55",
+      "passenger_count": 1,
+      "pickup_longitude": -73.982154,
+      "pickup_latitude": 40.767937,
+      "dropoff_longitude": -73.96463,
+      "dropoff_latitude": 40.765602,
+      "store_and_fwd_flag": "N"
+    },
+    {
+      "vendor_id": 2,
+      "pickup_datetime": "2016-03-14T18:02:10",
+      "passenger_count": 2,
+      "pickup_longitude": -73.99012,
+      "pickup_latitude": 40.75021,
+      "dropoff_longitude": -73.97845,
+      "dropoff_latitude": 40.76111,
+      "store_and_fwd_flag": "N"
+    }
+  ]
+}
+```
+
 Exemple de reponse:
 
 ```json
 {
   "prediction_id": 3,
-  "trip_duration": 480
+  "trip_duration": 480,
+  "model_version": "taxi_trip_duration_custom_20260415T120000Z"
+}
+```
+
+Exemple de reponse pour `POST /predict_batch`:
+
+```json
+{
+  "model_version": "taxi_trip_duration_custom_20260415T120000Z",
+  "predictions": [
+    {
+      "prediction_id": 4,
+      "trip_duration": 480
+    },
+    {
+      "prediction_id": 5,
+      "trip_duration": 615
+    }
+  ]
 }
 ```
 

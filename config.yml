@@ -20,6 +20,7 @@ paths:
   model_ridge_path: ./models/taxi_trip_duration_ridge.model
   model_custom_path: ./models/taxi_trip_duration_custom.model
   model_custom_metadata_path: ./models/taxi_trip_duration_custom.metadata.json
+  model_custom_versions_dir: ./models/custom_versions
   notebooks: ./notebooks
   reports: ./reports
   figures: ./reports/figures

@@ -77,37 +77,3 @@ class BatchTripPredictionResponse(BaseModel):
     # Batch predictions share one resolved model version for the whole request.
     model_version: str
     predictions: list[BatchPredictionItem]
-
-
-class HealthResponse(BaseModel):
-    # Operational endpoint used by manual checks or orchestration tools.
-    status: str
-
-
-class RootResponse(BaseModel):
-    # Root endpoint exposes quick usage hints for manual API checks.
-    message: str
-    nyc_bounding_box: str
-    min_trip_distance_meters: int
-    latest_model_version: str | None
-
-
-class RandomTestResponse(BaseModel):
-    # Debug endpoint payload exposing one database row and its target value.
-    x: dict
-    y: float
-
-
-class ValidationErrorResponse(BaseModel):
-    # Keep 422 responses explicit so API users know how to fix their payload.
-    message: str
-    bounding_box: dict[str, list[float]]
-    min_trip_distance_meters: int
-    errors: list[dict[str, str]]
-
-
-class ModelVersionErrorResponse(BaseModel):
-    # Explain model selection failures with the available versions.
-    message: str
-    requested_model_version: str
-    available_model_versions: list[str]

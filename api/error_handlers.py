@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from api.config import SETTINGS
 from api.exceptions import ModelVersionNotFoundError
-from api.schemas import ModelVersionErrorResponse, ValidationErrorResponse
+from api.schemas.errors import ModelVersionErrorResponse, ValidationErrorResponse
 
 
 async def handle_request_validation_error(

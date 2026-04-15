@@ -5,7 +5,7 @@ from pathlib import Path
 
 from api.exceptions import ModelVersionNotFoundError
 from api.model_metadata import ModelMetadata, load_model_metadata
-from api.repository import PredictionRepository
+from api.repositories.prediction_repository import PredictionRepository
 from model.inference.custom_model import TaxiTripDurationModel
 
 
@@ -18,7 +18,6 @@ class ModelRegistry:
         self._models_by_version: dict[str, TaxiTripDurationModel] = {}
 
     def get_metadata(self, model_version: str | None = None) -> ModelMetadata:
-        # Default to the latest available version when the caller does not specify one.
         metadata_by_version = self._load_metadata_by_version()
         if model_version is None:
             return max(
@@ -34,7 +33,6 @@ class ModelRegistry:
         return sorted(self._load_metadata_by_version())
 
     def load_model(self, model_version: str | None = None) -> tuple[TaxiTripDurationModel, ModelMetadata]:
-        # Load the requested model once and reuse it across requests.
         metadata = self.get_metadata(model_version)
         cached_model = self._models_by_version.get(metadata.version)
         if cached_model is None:
@@ -53,7 +51,6 @@ class ModelRegistry:
         return cached_model, metadata
 
     def _load_metadata_by_version(self) -> dict[str, ModelMetadata]:
-        # Versioned metadata files are the source of truth for available models.
         metadata_by_version: dict[str, ModelMetadata] = {}
 
         if self._versions_dir.exists():

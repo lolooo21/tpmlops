@@ -6,15 +6,29 @@ Base de projet Python + Jupyter pour exploration de donnees, entrainement de mod
 
 ```text
 JupyterProject/
-+-- api/                  # API FastAPI pour l'inference
-|   +-- main.py          # Endpoints HTTP
-|   +-- schemas.py       # Schemas Pydantic request/response
-|   +-- validation.py    # Validation geographique des requetes
-|   +-- model_metadata.py # Metadonnees du modele charge par l'API
-|   +-- model_registry.py # Resolution et chargement des versions de modele
-|   +-- service.py       # Orchestration prediction + persistence
-|   +-- repository.py    # Acces SQLite pour les predictions
-|   +-- config.py        # Parametres de l'API
++-- api/                           # API FastAPI pour l'inference
+|   +-- main.py                    # Creation de l'application FastAPI + inclusion des routes
+|   +-- dependencies.py            # Wiring des dependances et use cases
+|   +-- validation.py              # Validation geographique des requetes
+|   +-- error_handlers.py          # Transformation des exceptions en reponses HTTP
+|   +-- exceptions.py              # Exceptions metier API
+|   +-- config.py                  # Parametres de l'API
+|   +-- schemas/
+|   |   +-- prediction.py         # Schemas Pydantic des endpoints de prediction
+|   |   +-- health.py             # Schemas des endpoints root, health et debug
+|   |   +-- errors.py             # Schemas des erreurs HTTP exposees par l'API
+|   +-- routes/
+|   |   +-- health.py              # Endpoints root et health
+|   |   +-- prediction.py          # Endpoints predict, predict_batch et test/random
+|   +-- use_cases/
+|   |   +-- predict_trip.py        # Cas d'usage prediction unitaire
+|   |   +-- predict_trip_batch.py  # Cas d'usage prediction batch
+|   |   +-- get_random_test_sample.py # Cas d'usage du endpoint debug
+|   +-- repositories/
+|   |   +-- prediction_repository.py # Persistance SQLite des predictions
+|   |   +-- test_data_repository.py  # Lecture du jeu de test SQLite
+|   +-- infrastructure/
+|   |   +-- model_registry.py      # Chargement et resolution des versions de modele
 +-- data/
 |   +-- raw/              # Donnees brutes
 |   +-- processed/        # Donnees preparees
@@ -114,28 +128,31 @@ Ce script recharge `models/taxi_trip_duration_custom.model` et affiche quelques 
 
 ## Fonctionnement de l'API
 
-L'API repose sur 6 couches simples:
+Le dossier `api/` a ete refactorise pour mieux separer les responsabilites.
+
+L'API repose maintenant sur 6 couches explicites:
 
 1. `api/main.py`
-   Expose les endpoints FastAPI.
-2. `api/schemas.py`
-   Valide les payloads d'entree et les reponses avec Pydantic.
-3. `api/validation.py`
-   Regroupe les regles geographiques appliquees avant l'inference.
-4. `api/model_registry.py`
-   Selectionne la version demandee et charge le bon artefact de modele.
-5. `api/service.py`
-   Charge le modele, appelle la prediction et orchestre la sauvegarde.
-6. `api/repository.py`
-   Cree les tables SQLite si besoin et persiste predictions + metadata du modele.
+   Cree l'application FastAPI et branche les routeurs.
+2. `api/routes/`
+   Expose les endpoints HTTP sans porter la logique metier.
+3. `api/use_cases/`
+   Orchestre les actions applicatives: prediction unitaire, prediction batch, endpoint debug.
+4. `api/repositories/`
+   Gere l'acces SQLite pour la persistance et la lecture des donnees de test.
+5. `api/infrastructure/`
+   Charge les artefacts de modele et resout les versions disponibles.
+6. `api/schemas/` + `api/validation.py`
+   Definissent le contrat d'entree/sortie et les regles de validation.
 
 Flux d'une requete `POST /predict`:
 
 1. FastAPI recoit le JSON et le valide avec `TripPredictionRequest`.
-2. `PredictionService` convertit le payload en `DataFrame`.
-3. Le modele custom `TaxiTripDurationModel` applique preprocessing + prediction + postprocessing.
-4. `PredictionRepository` enregistre la prediction avec l'horodatage d'inference et la version du modele.
-5. L'API retourne `prediction_id` et `trip_duration`.
+2. `api/routes/prediction.py` transmet la requete au use case `PredictTripUseCase`.
+3. `PredictTripUseCase` charge le modele via `ModelRegistry` puis convertit le payload en `DataFrame`.
+4. Le modele custom `TaxiTripDurationModel` applique preprocessing + prediction + postprocessing.
+5. `PredictionRepository` enregistre la prediction avec l'horodatage d'inference et la version du modele.
+6. L'API retourne `prediction_id` et `trip_duration`.
 
 ## Versioning des modeles
 
@@ -220,7 +237,7 @@ Fichiers lies a l'interface:
 - `ui/app.py` : application Streamlit principale
 - `streamlit_app.py` : wrapper de compatibilite qui lance `ui.app.main()`
 - `api/main.py` : endpoint HTTP `POST /predict` appele par l'UI
-- `api/schemas.py` : format exact du payload et de la reponse
+- `api/schemas/prediction.py` : format exact du payload et de la reponse de prediction
 - `api/error_handlers.py` : structure des erreurs transformees ensuite en messages lisibles dans l'UI
 
 Flux des donnees dans l'interface:

@@ -8,7 +8,7 @@ from api.model_metadata import ModelMetadata
 
 
 class PredictionRepository:
-    # Repository isolates SQLite concerns from the service and the routes.
+    # Repository isolates SQLite concerns from the application and HTTP layers.
     def __init__(self, db_path: str):
         self._db_path = db_path
 
@@ -46,7 +46,6 @@ class PredictionRepository:
             connection.commit()
 
     def register_model_metadata(self, metadata: ModelMetadata) -> None:
-        # Persist one row per model version so every prediction can point to it.
         registered_at = datetime.now(timezone.utc).isoformat()
         with sqlite3.connect(self._db_path) as connection:
             connection.execute(
@@ -82,7 +81,6 @@ class PredictionRepository:
             insert_values = []
 
             if "created_at" in prediction_columns:
-                # Keep backward compatibility with legacy databases that still require created_at.
                 insert_columns.append("created_at")
                 insert_values.append(inference_timestamp)
 
@@ -127,7 +125,6 @@ class PredictionRepository:
             return int(cursor.lastrowid)
 
     def _ensure_prediction_columns(self, connection: sqlite3.Connection) -> None:
-        # Support existing SQLite files without forcing a manual migration step.
         existing_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(predictions)").fetchall()
         }
@@ -143,7 +140,6 @@ class PredictionRepository:
             connection.execute("ALTER TABLE predictions ADD COLUMN model_version TEXT")
 
     def _get_prediction_columns(self, connection: sqlite3.Connection) -> set[str]:
-        # Read the live schema because existing local databases may still be on the old layout.
         return {row[1] for row in connection.execute("PRAGMA table_info(predictions)").fetchall()}
 
 

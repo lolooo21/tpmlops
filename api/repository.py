@@ -4,6 +4,7 @@ import sqlite3
 from datetime import datetime, timezone
 
 from api.config import SETTINGS
+from api.model_metadata import ModelMetadata
 
 
 class PredictionRepository:
@@ -15,9 +16,19 @@ class PredictionRepository:
         with sqlite3.connect(self._db_path) as connection:
             connection.execute(
                 """
+                CREATE TABLE IF NOT EXISTS model_metadata (
+                    version TEXT PRIMARY KEY,
+                    model_path TEXT NOT NULL,
+                    model_created_at TEXT NOT NULL,
+                    registered_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
                 CREATE TABLE IF NOT EXISTS predictions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    created_at TEXT NOT NULL,
+                    inference_timestamp TEXT NOT NULL,
                     vendor_id INTEGER NOT NULL,
                     pickup_datetime TEXT NOT NULL,
                     passenger_count INTEGER NOT NULL,
@@ -26,14 +37,41 @@ class PredictionRepository:
                     dropoff_longitude REAL NOT NULL,
                     dropoff_latitude REAL NOT NULL,
                     store_and_fwd_flag TEXT NOT NULL,
-                    prediction INTEGER NOT NULL
+                    prediction INTEGER NOT NULL,
+                    model_version TEXT NOT NULL
                 )
                 """
             )
+            self._ensure_prediction_columns(connection)
             connection.commit()
 
-    def save_prediction(self, payload: dict, prediction: int) -> int:
-        created_at = datetime.now(timezone.utc).isoformat()
+    def register_model_metadata(self, metadata: ModelMetadata) -> None:
+        # Persist one row per model version so every prediction can point to it.
+        registered_at = datetime.now(timezone.utc).isoformat()
+        with sqlite3.connect(self._db_path) as connection:
+            connection.execute(
+                """
+                INSERT INTO model_metadata (
+                    version,
+                    model_path,
+                    model_created_at,
+                    registered_at
+                ) VALUES (?, ?, ?, ?)
+                ON CONFLICT(version) DO UPDATE SET
+                    model_path = excluded.model_path,
+                    model_created_at = excluded.model_created_at
+                """,
+                (
+                    metadata.version,
+                    metadata.path,
+                    metadata.created_at,
+                    registered_at,
+                ),
+            )
+            connection.commit()
+
+    def save_prediction(self, payload: dict, prediction: int, model_version: str) -> int:
+        inference_timestamp = datetime.now(timezone.utc).isoformat()
         pickup_datetime = payload["pickup_datetime"]
         if hasattr(pickup_datetime, "isoformat"):
             pickup_datetime = pickup_datetime.isoformat()
@@ -42,7 +80,7 @@ class PredictionRepository:
             cursor = connection.execute(
                 """
                 INSERT INTO predictions (
-                    created_at,
+                    inference_timestamp,
                     vendor_id,
                     pickup_datetime,
                     passenger_count,
@@ -51,11 +89,12 @@ class PredictionRepository:
                     dropoff_longitude,
                     dropoff_latitude,
                     store_and_fwd_flag,
-                    prediction
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    prediction,
+                    model_version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    created_at,
+                    inference_timestamp,
                     payload["vendor_id"],
                     pickup_datetime,
                     payload["passenger_count"],
@@ -65,10 +104,27 @@ class PredictionRepository:
                     payload["dropoff_latitude"],
                     payload["store_and_fwd_flag"],
                     prediction,
+                    model_version,
                 ),
             )
             connection.commit()
             return int(cursor.lastrowid)
+
+    def _ensure_prediction_columns(self, connection: sqlite3.Connection) -> None:
+        # Support existing SQLite files without forcing a manual migration step.
+        existing_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(predictions)").fetchall()
+        }
+
+        if "inference_timestamp" not in existing_columns and "created_at" in existing_columns:
+            connection.execute("ALTER TABLE predictions ADD COLUMN inference_timestamp TEXT")
+            connection.execute(
+                "UPDATE predictions SET inference_timestamp = created_at "
+                "WHERE inference_timestamp IS NULL"
+            )
+
+        if "model_version" not in existing_columns:
+            connection.execute("ALTER TABLE predictions ADD COLUMN model_version TEXT")
 
 
 def build_prediction_repository() -> PredictionRepository:

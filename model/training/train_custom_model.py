@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import pickle
+import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +27,7 @@ from model.preprocessing.ridge_features import CAT_FEATURES, NUM_FEATURES, TRAIN
 
 MODEL_PATH = common.CONFIG["paths"]["model_custom_path"]
 MODEL_METADATA_PATH = common.CONFIG["paths"]["model_custom_metadata_path"]
+MODEL_VERSIONS_DIR = common.CONFIG["paths"]["model_custom_versions_dir"]
 
 
 def build_model() -> Pipeline:
@@ -91,11 +93,21 @@ def build_model_version() -> str:
 
 
 def persist_training_artifacts(model: TaxiTripDurationModel, model_path: str, metadata_path: str) -> None:
-    # Store both the serialized model and the metadata needed by the API.
-    persist_model(model, model_path)
+    # Store one immutable versioned artifact and refresh the latest aliases used by the API.
     model_version = build_model_version()
-    metadata = build_model_metadata(model_path, model_version)
-    save_model_metadata(metadata, metadata_path)
+    versions_dir = Path(MODEL_VERSIONS_DIR)
+    versions_dir.mkdir(parents=True, exist_ok=True)
+
+    versioned_model_path = versions_dir / f"{model_version}.model"
+    versioned_metadata_path = versions_dir / f"{model_version}.metadata.json"
+
+    persist_model(model, str(versioned_model_path))
+    versioned_metadata = build_model_metadata(str(versioned_model_path), model_version)
+    save_model_metadata(versioned_metadata, str(versioned_metadata_path))
+
+    shutil.copy2(versioned_model_path, model_path)
+    latest_metadata = build_model_metadata(model_path, model_version)
+    save_model_metadata(latest_metadata, metadata_path)
     print(f"Model version = {model_version}")
 
 

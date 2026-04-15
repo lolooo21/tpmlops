@@ -56,9 +56,27 @@ class TripPredictionRequest(BaseModel):
 
 
 class TripPredictionResponse(BaseModel):
-    # Response stays intentionally minimal: one request, one prediction.
+    # Response includes both the prediction and the model version used.
     prediction_id: int
     trip_duration: int
+    model_version: str
+
+
+class BatchPredictionItem(BaseModel):
+    # Keep each batch item aligned with the single prediction payload.
+    prediction_id: int
+    trip_duration: int
+
+
+class BatchTripPredictionRequest(BaseModel):
+    # Batch requests reuse the single-trip schema for consistent validation.
+    trips: list[TripPredictionRequest] = Field(..., min_length=1)
+
+
+class BatchTripPredictionResponse(BaseModel):
+    # Batch predictions share one resolved model version for the whole request.
+    model_version: str
+    predictions: list[BatchPredictionItem]
 
 
 class HealthResponse(BaseModel):
@@ -71,6 +89,7 @@ class RootResponse(BaseModel):
     message: str
     nyc_bounding_box: str
     min_trip_distance_meters: int
+    latest_model_version: str | None
 
 
 class RandomTestResponse(BaseModel):
@@ -85,3 +104,10 @@ class ValidationErrorResponse(BaseModel):
     bounding_box: dict[str, list[float]]
     min_trip_distance_meters: int
     errors: list[dict[str, str]]
+
+
+class ModelVersionErrorResponse(BaseModel):
+    # Explain model selection failures with the available versions.
+    message: str
+    requested_model_version: str
+    available_model_versions: list[str]

@@ -21,6 +21,7 @@ class ApiSettings:
     port: int = 8000
     model_path: str = common.CONFIG["paths"]["model_custom_path"]
     model_metadata_path: str = common.CONFIG["paths"]["model_custom_metadata_path"]
+    model_versions_dir: str = common.CONFIG["paths"]["model_custom_versions_dir"]
     db_path: str = common.CONFIG["paths"]["db_path"]
     target_column: str = common.CONFIG["dataset"]["target_column"]
     min_trip_distance_meters: int = common.CONFIG["api"]["validation"]["min_trip_distance_meters"]

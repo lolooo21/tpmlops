@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 from sklearn.pipeline import Pipeline
 
-from model.preprocessing import add_model_features, transform_target
-from model.ridge_features import TRAIN_FEATURES
+from model.preprocessing.preprocessing import add_model_features, transform_target
+from model.preprocessing.ridge_features import TRAIN_FEATURES
 
 
 class TaxiTripDurationModel:

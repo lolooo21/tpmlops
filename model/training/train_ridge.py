@@ -9,16 +9,16 @@ import pickle
 import sys
 from pathlib import Path
 
-from model.custom_model import TaxiTripDurationModel
+from model.inference.custom_model import TaxiTripDurationModel
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from data.load_data import load_train_data, load_test_data
-from model.features import build_abnormal_dates
-from model.preprocessing import add_model_features, transform_target
-from model.ridge_features import CAT_FEATURES, NUM_FEATURES, TRAIN_FEATURES
+from model.preprocessing.features import build_abnormal_dates
+from model.preprocessing.preprocessing import add_model_features, transform_target
+from model.preprocessing.ridge_features import CAT_FEATURES, NUM_FEATURES, TRAIN_FEATURES
 
 
 import common
@@ -74,10 +74,9 @@ def train_model():
 
     # Persist a serving artifact instead of the raw pipeline so the API does not
     # need to know how to rebuild preprocessing state.
-    return TaxiTripDurationModel(
-        pipeline=pipeline,
-        abnormal_dates=[str(date) for date in abnormal_dates],
-    )
+    model = TaxiTripDurationModel(model=pipeline)
+    model.abnormal_dates = [str(date) for date in abnormal_dates]
+    return model
 
 
 def persist_model(model, path):

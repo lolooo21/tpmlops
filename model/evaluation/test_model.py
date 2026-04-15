@@ -2,13 +2,13 @@ import pickle
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from data.load_data import load_random_test_data
 import common
-from model.custom_model import TaxiTripDurationModel
+from model.inference.custom_model import TaxiTripDurationModel
 
 MODEL_PATH = common.CONFIG["paths"]["model_custom_path"]
 TARGET_COLUMN = common.CONFIG["dataset"]["target_column"]

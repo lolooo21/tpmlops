@@ -9,6 +9,7 @@ JupyterProject/
 +-- api/                  # API FastAPI pour l'inference
 |   +-- main.py          # Endpoints HTTP
 |   +-- schemas.py       # Schemas Pydantic request/response
+|   +-- validation.py    # Validation geographique des requetes
 |   +-- service.py       # Orchestration prediction + persistence
 |   +-- repository.py    # Acces SQLite pour les predictions
 |   +-- config.py        # Parametres de l'API
@@ -114,9 +115,11 @@ L'API repose sur 4 couches simples:
    Expose les endpoints FastAPI.
 2. `api/schemas.py`
    Valide les payloads d'entree et les reponses avec Pydantic.
-3. `api/service.py`
+3. `api/validation.py`
+   Regroupe les regles geographiques appliquees avant l'inference.
+4. `api/service.py`
    Charge le modele, appelle la prediction et orchestre la sauvegarde.
-4. `api/repository.py`
+5. `api/repository.py`
    Cree la table `predictions` si besoin et persiste chaque prediction dans SQLite.
 
 Flux d'une requete `POST /predict`:
@@ -126,6 +129,22 @@ Flux d'une requete `POST /predict`:
 3. Le modele custom `TaxiTripDurationModel` applique preprocessing + prediction + postprocessing.
 4. `PredictionRepository` enregistre l'entree et la prediction dans la table `predictions`.
 5. L'API retourne `prediction_id` et `trip_duration`.
+
+## Validation des inputs
+
+Avant d'appeler le modele, l'API valide les coordonnees du trajet.
+
+Regles appliquees sur `POST /predict`:
+- `pickup_longitude` et `dropoff_longitude` doivent rester dans la bounding box NYC configuree.
+- `pickup_latitude` et `dropoff_latitude` doivent rester dans la bounding box NYC configuree.
+- la distance Haversine entre pickup et dropoff doit etre strictement superieure au seuil configure
+
+Parametres de validation:
+- `config.yml > api.validation.min_trip_distance_meters`
+- `config.yml > api.validation.nyc_bounding_box.longitude`
+- `config.yml > api.validation.nyc_bounding_box.latitude`
+
+La formule de Haversine calcule une distance "a vol d'oiseau" entre pickup et dropoff. Ici, elle sert juste a filtrer les courses quasi nulles avant prediction.
 
 ## Lancer l'API
 

@@ -1,6 +1,17 @@
 project:
   name: jupyterproject
 
+api:
+  validation:
+    min_trip_distance_meters: 50
+    nyc_bounding_box:
+      longitude:
+        min: -74.30
+        max: -73.70
+      latitude:
+        min: 40.50
+        max: 40.95
+
 paths:
   raw_data: ./data/raw
   processed_data: ./data/processed

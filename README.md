@@ -232,9 +232,13 @@ Fonctionnalites:
 - appel direct a `POST /predict`
 - affichage de la duree predite et de la version de modele utilisee
 - gestion de messages d'erreur utilisateur pour les inputs invalides et les versions de modele inconnues
+- page `Statistics` qui compare les distributions du jeu d'entrainement et des predictions via histogrammes
 
 Fichiers lies a l'interface:
 - `ui/app.py` : application Streamlit principale
+- `ui/pages/2_Statistics.py` : page Streamlit de statistiques et histogrammes
+- `ui/data_access.py` : acces SQLite centralise pour les distributions affichees dans l'UI
+- `ui/bootstrap.py` : utilitaire de bootstrap des imports partages par les pages Streamlit
 - `streamlit_app.py` : wrapper de compatibilite qui lance `ui.app.main()`
 - `api/main.py` : endpoint HTTP `POST /predict` appele par l'UI
 - `api/schemas/prediction.py` : format exact du payload et de la reponse de prediction
@@ -251,6 +255,14 @@ Flux des donnees dans l'interface:
 5. L'API retourne `prediction_id`, `trip_duration` et `model_version`.
 6. L'UI formate `trip_duration` en `hh:mm:ss` puis affiche le resultat.
 7. Si l'API renvoie une erreur, `extract_api_error_message()` convertit la reponse JSON en message utilisateur plus lisible.
+
+Flux des donnees dans la page `Statistics`:
+1. `ui/pages/2_Statistics.py` appelle `load_training_trip_durations()` et `load_predicted_trip_durations()`.
+2. `ui/data_access.py` lit SQLite directement:
+   la table `train` pour la colonne `trip_duration`,
+   la table `predictions` pour la colonne `prediction`.
+3. Les `Series` pandas chargees sont affichees sous forme de resume statistique (`describe`) et d'histogrammes.
+4. Si aucune prediction n'est encore enregistree, la page affiche seulement l'histogramme du jeu d'entrainement et un message explicatif.
 
 Extrait simplifie du payload envoye par l'UI:
 
@@ -287,6 +299,10 @@ Terminal 2, Streamlit:
 ```powershell
 .\.venv\Scripts\python.exe -m streamlit run .\ui\app.py
 ```
+
+La navigation multipage Streamlit affichera ensuite:
+- la page principale de prediction
+- la page `Statistics`
 
 Si tu vois `ModuleNotFoundError: No module named 'streamlit_folium'`, cela signifie que les dependances UI ne sont pas encore installees dans le meme virtualenv que celui utilise pour lancer Streamlit.
 

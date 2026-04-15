@@ -5,15 +5,17 @@ import sys
 from datetime import date, datetime, time
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-# When Streamlit runs from ui/, add the project root so `api.*` stays importable
-# without coupling the UI to the training modules.
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
 import folium
 import requests
 import streamlit as st
+
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
+from bootstrap import ensure_project_root_on_path
+
+PROJECT_ROOT = ensure_project_root_on_path()
 
 try:
     from streamlit_folium import st_folium

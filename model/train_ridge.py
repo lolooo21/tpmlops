@@ -9,6 +9,8 @@ import pickle
 import sys
 from pathlib import Path
 
+from model.custom_model import TaxiTripDurationModel
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -17,7 +19,7 @@ from data.load_data import load_train_data, load_test_data
 from model.features import build_abnormal_dates
 from model.preprocessing import add_model_features, transform_target
 from model.ridge_features import CAT_FEATURES, NUM_FEATURES, TRAIN_FEATURES
-from model.serving import TaxiTripDurationModel
+
 
 import common
 

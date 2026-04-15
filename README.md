@@ -10,6 +10,7 @@ JupyterProject/
 |   +-- main.py          # Endpoints HTTP
 |   +-- schemas.py       # Schemas Pydantic request/response
 |   +-- validation.py    # Validation geographique des requetes
+|   +-- model_metadata.py # Metadonnees du modele charge par l'API
 |   +-- service.py       # Orchestration prediction + persistence
 |   +-- repository.py    # Acces SQLite pour les predictions
 |   +-- config.py        # Parametres de l'API
@@ -98,6 +99,7 @@ Artefacts produits:
 - `models/taxi_trip_duration.model`
 - `models/taxi_trip_duration_ridge.model`
 - `models/taxi_trip_duration_custom.model`
+- `models/taxi_trip_duration_custom.metadata.json`
 
 ## Test rapide du modele custom
 
@@ -120,15 +122,35 @@ L'API repose sur 4 couches simples:
 4. `api/service.py`
    Charge le modele, appelle la prediction et orchestre la sauvegarde.
 5. `api/repository.py`
-   Cree la table `predictions` si besoin et persiste chaque prediction dans SQLite.
+   Cree les tables SQLite si besoin et persiste predictions + metadata du modele.
 
 Flux d'une requete `POST /predict`:
 
 1. FastAPI recoit le JSON et le valide avec `TripPredictionRequest`.
 2. `PredictionService` convertit le payload en `DataFrame`.
 3. Le modele custom `TaxiTripDurationModel` applique preprocessing + prediction + postprocessing.
-4. `PredictionRepository` enregistre l'entree et la prediction dans la table `predictions`.
+4. `PredictionRepository` enregistre la prediction avec l'horodatage d'inference et la version du modele.
 5. L'API retourne `prediction_id` et `trip_duration`.
+
+## Logging de metadonnees
+
+L'API conserve aussi des informations de traçabilite dans SQLite.
+
+Table `model_metadata`:
+- `version`
+- `model_path`
+- `model_created_at`
+- `registered_at`
+
+Table `predictions`:
+- `inference_timestamp`
+- `model_version`
+- payload d'entree
+- prediction
+
+La version du modele n'est pas stockee dans `config.yml`.
+Chaque entrainement genere automatiquement le fichier `models/taxi_trip_duration_custom.metadata.json`.
+L'API lit ce fichier pour connaitre la version exacte du modele charge.
 
 ## Validation des inputs
 
@@ -190,6 +212,19 @@ Exemple de reponse:
 ```
 
 Chaque appel a `/predict` ajoute une ligne dans la table SQLite `predictions`.
+Le modele charge est aussi reference dans la table SQLite `model_metadata`.
+
+## TODO Logging
+
+Ameliorations possibles pour le logging d'inference:
+- stocker le payload brut complet de la requete en JSON
+- stocker les inputs valides apres validation
+- stocker les features calculees utilisees par le modele pour chaque prediction
+- stocker la liste des features attendues par version de modele
+- stocker les metriques du modele par version: train, validation, test
+- stocker le temps d'inference pour chaque requete
+- stocker les erreurs de prediction et de validation dans un journal dedie
+- ajouter un endpoint simple pour consulter les metadata du modele et l'historique des predictions
 
 ## Troubleshooting
 

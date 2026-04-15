@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import pickle
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from sklearn.compose import ColumnTransformer
@@ -15,15 +16,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+import common
+from api.model_metadata import build_model_metadata, save_model_metadata
 from data.load_data import load_test_data, load_train_data
 from model.inference.custom_model import TaxiTripDurationModel
 from model.preprocessing.features import build_abnormal_dates
 from model.preprocessing.preprocessing import transform_target
 from model.preprocessing.ridge_features import CAT_FEATURES, NUM_FEATURES, TRAIN_FEATURES
 
-import common
-
 MODEL_PATH = common.CONFIG["paths"]["model_custom_path"]
+MODEL_METADATA_PATH = common.CONFIG["paths"]["model_custom_metadata_path"]
 
 
 def build_model() -> Pipeline:
@@ -82,7 +84,22 @@ def persist_model(model: TaxiTripDurationModel, path: str) -> None:
     print("Done")
 
 
+def build_model_version() -> str:
+    # Timestamp-based versioning keeps each training run traceable without manual edits.
+    trained_at = datetime.now(timezone.utc)
+    return trained_at.strftime("taxi_trip_duration_custom_%Y%m%dT%H%M%SZ")
+
+
+def persist_training_artifacts(model: TaxiTripDurationModel, model_path: str, metadata_path: str) -> None:
+    # Store both the serialized model and the metadata needed by the API.
+    persist_model(model, model_path)
+    model_version = build_model_version()
+    metadata = build_model_metadata(model_path, model_version)
+    save_model_metadata(metadata, metadata_path)
+    print(f"Model version = {model_version}")
+
+
 if __name__ == "__main__":
     # Script entry point used by the API-ready custom wrapper.
     model = train_model()
-    persist_model(model, MODEL_PATH)
+    persist_training_artifacts(model, MODEL_PATH, MODEL_METADATA_PATH)

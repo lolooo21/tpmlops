@@ -20,6 +20,7 @@ class ApiSettings:
     host: str = "0.0.0.0"
     port: int = 8000
     model_path: str = common.CONFIG["paths"]["model_custom_path"]
+    model_metadata_path: str = common.CONFIG["paths"]["model_custom_metadata_path"]
     db_path: str = common.CONFIG["paths"]["db_path"]
     target_column: str = common.CONFIG["dataset"]["target_column"]
     min_trip_distance_meters: int = common.CONFIG["api"]["validation"]["min_trip_distance_meters"]

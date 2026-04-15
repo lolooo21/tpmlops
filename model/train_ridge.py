@@ -16,31 +16,17 @@ if str(PROJECT_ROOT) not in sys.path:
 from data.load_data import load_train_data, load_test_data
 from model.features import build_abnormal_dates
 from model.preprocessing import add_model_features, transform_target
+from model.ridge_features import CAT_FEATURES, NUM_FEATURES, TRAIN_FEATURES
+from model.serving import TaxiTripDurationModel
 
 import common
 
 MODEL_PATH = common.CONFIG["paths"]["model_ridge_path"]
 
-NUM_FEATURES = [
-    "log_distance_haversine",
-    "hour",
-    "hour_sin",
-    "hour_cos",
-    "abnormal_period",
-    "is_weekend",
-    "is_holiday",
-    "is_pre_holiday",
-    "is_post_holiday",
-    "is_high_traffic_trip",
-    "is_high_speed_trip",
-    "is_rare_pickup_point",
-    "is_rare_dropoff_point",
-]
-CAT_FEATURES = ["weekday", "month", "time_bucket"]
-TRAIN_FEATURES = NUM_FEATURES + CAT_FEATURES
-
 
 def build_model():
+    # The sklearn pipeline handles only transformations that belong to the model itself:
+    # categorical encoding, numeric scaling and regression.
     column_transformer = ColumnTransformer(
         [
             ("ohe", OneHotEncoder(handle_unknown="ignore"), CAT_FEATURES),
@@ -60,28 +46,36 @@ def build_model():
 def train_model():
     print("Building ridge model")
 
+    # The train/test split already exists in SQLite and is reused here as-is.
     X_train, y_train = load_train_data()
     X_test, y_test = load_test_data()
 
+    # This state must be persisted because it is needed later by the API.
     abnormal_dates = build_abnormal_dates(X_train)
 
     X_train = add_model_features(X_train, abnormal_dates)
     X_test = add_model_features(X_test, abnormal_dates)
 
+    # The model optimizes a log-transformed target to stabilize long trip durations.
     y_train = transform_target(y_train)
     y_test = transform_target(y_test)
 
-    model = build_model()
-    model.fit(X_train[TRAIN_FEATURES], y_train)
+    pipeline = build_model()
+    pipeline.fit(X_train[TRAIN_FEATURES], y_train)
 
-    y_pred_train = model.predict(X_train[TRAIN_FEATURES])
-    y_pred_test = model.predict(X_test[TRAIN_FEATURES])
+    y_pred_train = pipeline.predict(X_train[TRAIN_FEATURES])
+    y_pred_test = pipeline.predict(X_test[TRAIN_FEATURES])
 
     print(f"Train RMSLE = {root_mean_squared_error(y_train, y_pred_train):.4f}")
     print(f"Test RMSLE = {root_mean_squared_error(y_test, y_pred_test):.4f}")
     print(f"Test R2 = {r2_score(y_test, y_pred_test):.4f}")
 
-    return model
+    # Persist a serving artifact instead of the raw pipeline so the API does not
+    # need to know how to rebuild preprocessing state.
+    return TaxiTripDurationModel(
+        pipeline=pipeline,
+        abnormal_dates=[str(date) for date in abnormal_dates],
+    )
 
 
 def persist_model(model, path):
@@ -96,5 +90,6 @@ def persist_model(model, path):
 
 
 if __name__ == "__main__":
+    # Script entry point used to regenerate the API-ready model artifact.
     model = train_model()
     persist_model(model, MODEL_PATH)

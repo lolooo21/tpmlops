@@ -4,6 +4,7 @@ from model.features import add_distance_features, add_time_features, add_trip_ty
 
 
 def preprocess_data(X):
+    # Baseline preprocessing kept for the simple linear model scripts.
     print("Preprocessing data")
     X = X.copy()
 
@@ -24,16 +25,19 @@ def preprocess_data(X):
 def transform_target(y):
     import numpy as np
 
+    # Log transform reduces the effect of extreme trip durations on the regression.
     return np.log1p(y).rename("log_" + y.name)
 
 
 def undo_step3_process_features(X):
+    # These raw columns are intentionally removed from the final Ridge feature set.
     X = X.copy()
     X = X.drop(columns=["vendor_id", "store_and_fwd_flag", "passenger_count"], errors="ignore")
     return X
 
 
 def add_model_features(X, abnormal_dates=None):
+    # Central entry point for feature engineering reused by training and API serving.
     X = add_time_features(X, abnormal_dates)
     X = add_distance_features(X)
     X = add_trip_type_features(X)

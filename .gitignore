@@ -82,6 +82,7 @@ target/
 # Project data and artifacts
 data/raw/*
 data/processed/*
+data/*.db
 models/*
 reports/figures/*
 !data/raw/.gitkeep

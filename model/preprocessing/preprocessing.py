@@ -1,6 +1,6 @@
 import pandas as pd
 
-from model.features import add_distance_features, add_time_features, add_trip_type_features
+from model.preprocessing.features import add_distance_features, add_time_features, add_trip_type_features
 
 
 def preprocess_data(X):
